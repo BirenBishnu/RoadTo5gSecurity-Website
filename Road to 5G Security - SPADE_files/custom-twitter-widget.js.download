@@ -1,0 +1,144 @@
+etb2b = window.etb2b || {};
+etb2b.twitterWidget = {
+    currentObj : '',
+    design      : 1,
+    renderedIds : [],
+    masonaryLoaded : 0,
+    addRequiredCss:function(css){
+        head = document.head || document.getElementsByTagName('head')[0],
+            style = document.createElement('style');
+        style.type = 'text/css';
+        if (style.styleSheet){
+          // This is required for IE8 and below.
+          style.styleSheet.cssText = css;
+        } else {
+          style.appendChild(document.createTextNode(css));
+        }
+        head.appendChild(style);   
+    },
+    getCurrentObj:function(){
+        return this.currentObj
+    },
+    getTemplate:function(){
+        console.log('this.design',this.design);
+        if(typeof this.design == 'undefined')
+        this.design = 1;
+        if(this.design == 1)
+        this.addRequiredCss('.social_panel{padding:10px;background-color:#f9f9f9;border-bottom:1px solid #ccc;border-top:1px solid #ccc;max-height:400px;overflow-y:scroll;margin-bottom:20px;padding-right:10px;}.social-wdgts .card footer{position:relative !important;}.social-wdgts .card{height:auto !important;    border: 1px solid #ccc;border-radius: 1px;}.social_panel:before{background:none !important;}.social_panel{background:#f3f3f3;position:relative;}.social_panel:before{position:absolute; content:" "; width:35.3%; height:100%; right:0; top:0; background:#dadada;}.social-wdgts .card{margin-bottom:10px; background:#fff; height:210px; position:relative;}/*.social-wdgts .card figure{overflow:hidden; max-height:160px;}*/.social-wdgts .card .body-txt{max-height:162px; padding:10px; overflow:hidden; font-size:14px; line-height:1.5em; color:#555;}.social-wdgts .card footer{position:absolute; width:100%; bottom:0; height:35px;  z-index:5;}.social-wdgts .card footer .fa{float:right; width:35px; height:35px; color:#fff; font-size:20px; line-height:35px; text-align:center;}.social-wdgts .card footer .fa-facebook{background:#3a5795;}.social-wdgts .card footer .fa-twitter{background:#21cbff;}.social-wdgts .card footer .meta{float:left; padding:10px 10px; line-height:1.2em; color:#888; font-size:11px;}.social-wdgts .card footer .meta a{color:#ed3e3e; display:block; }#socialpanela.mb-medium{margin-bottom: 10px !important;}.user-meta{padding-left:10px;padding-top:10px;}');
+        if(this.design == 2)
+        this.addRequiredCss('.social_panel{border-top:0px;padding:10px;border:1px solid #ccc;background-color:#f9f9f9}.social_panel{max-height:400px;overflow-y:scroll;margin-bottom:20px;padding-right:10px;}.social-wdgts .card footer{position:relative !important;}.social-wdgts .card{height:auto !important;    border: 1px solid #ccc;border-top: 3px solid #000;    border-radius: 1px;}.social_panel:before{background:none !important;}.social_panel{background:#f3f3f3;position:relative;}.social_panel:before{position:absolute; content:" "; width:35.3%; height:100%; right:0; top:0; background:#dadada;}.social-wdgts .card{margin-bottom:10px; background:#fff; height:210px; position:relative;}/*.social-wdgts .card figure{overflow:hidden; max-height:160px;}*/.social-wdgts .card .body-txt{padding:10px;font-size:14px; line-height:1.5em; color:#555;}.social-wdgts .card footer{position:absolute; width:100%; bottom:0; height:35px;  z-index:5;}.social-wdgts .card footer .fa{float:right; width:35px; height:35px; color:#fff; font-size:20px; line-height:35px; text-align:center;}.social-wdgts .card footer .fa-facebook{background:#3a5795;}.social-wdgts .card footer .fa-twitter{background:#21cbff;}.social-wdgts .card footer .meta{float:left; padding:10px 10px; line-height:1.2em; color:#888; font-size:11px;}.social-wdgts .card footer .meta a{color:#ed3e3e; display:block; }#socialpanela.mb-medium{margin-bottom: 10px !important;}.user-meta{padding-left:10px;padding-top:10px;}')
+        if(this.design == 1 || this.design==2)
+        {
+        return '{{#data}}{{#title}}'+
+                '<div class="'+((this.design == 2)?'col-md-3 col-sm-4':'col-md-12')+' grid-item">'+
+                    '<div class="card  source-{{source}}">'+
+                        '{{#meta.user}}<div class="user-meta meta" >{{#meta.user.image}}<img style="height:35px;" src="{{&meta.user.image}}"/>{{/meta.user.image}}<a style="padding:10px;line-height:35px;font-weight:bold;"href="https://twitter.com/{{&meta.user.screen_name}}" target="_blank">{{&meta.user.name}}</a></div>{{/meta.user}}'+
+                        '{{^image}}{{#title}}<div class="body-txt"><a href="{{&link}}" target="_blank">{{&title}}</a></div>{{/title}}{{/image}}'+
+                        '{{#image}}<a href="{{&link}}" target="_blank"><figure style="padding-top:10px;"><img src="{{image}}" /></figure></a>{{/image}}'+
+                        '<footer class="clearfix">'+
+                            '<div class="meta">'+
+                                '{{date}}'+
+                            '</div>'+
+                            '<a href="{{&link}}"  target="_blank"><i class="fa fa-{{source}}"></i></a>'+
+                        '</footer>'+
+                    '</div>  '+
+                '</div>'+
+                '{{/title}}{{/data}}';
+        }
+    },
+    renderWidget:function(data){
+        this.design = this.getCurrentObj().data('display');
+        var template = this.getTemplate();
+        Mustache.parse(template);   // optional, speeds up future uses
+        data = $.parseJSON(data);
+        console.log('data',data);
+        if(!(data && data[0] && data[0]['title']))
+        return;
+        dataFinal = [];
+        renderedIds = this.renderedIds;
+        $.each(data,function(i,v){
+            if($.inArray(v['id'],renderedIds) == -1){
+                dataFinal.push(v)
+            }
+            else
+            {
+                renderedIds.push(v);
+            }
+        });
+        this.renderedIds  = renderedIds;
+        var rendered = Mustache.render(template, {'data':dataFinal});
+        //<section class="social_panel"><div class="container"><div class="row social-wdgts grid">
+        if(this.getCurrentObj().find('.custom-twitter-widget-container .social_panel').length == 0)
+        this.getCurrentObj().find('.custom-twitter-widget-container').append('<section class="social_panel"><div class="container"><div class="row social-wdgts grid"></div></div></div>');
+        this.getCurrentObj().find('.custom-twitter-widget-container .social_panel .row').prepend(rendered);
+        if(typeof this.getCurrentObj().find('.social_panel').niceScroll == 'function')
+        this.getCurrentObj().find('.social_panel').niceScroll();
+        if(typeof window[this.getCurrentObj().data('callback')] == 'function')
+        window[this.getCurrentObj().data('callback')]();
+        if(this.design == 2)
+        {
+            if(this.masonaryLoaded == 0){
+                setTimeout(function(){
+                    loadScript('https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js',function(){
+                        $('.grid').masonry({
+                          itemSelector: '.grid-item',
+                        });       
+                    })
+                },500);
+                this.masonaryLoaded = 1;
+            }
+            else
+            {
+                $('.grid').masonry('destroy');
+                setTimeout(function(){
+                    $('.grid').masonry({
+                      itemSelector: '.grid-item',
+                    });
+                },100)
+            }
+            
+        }
+    },
+    loadTwitterData:function($url){
+        $obj = this;
+        $.get($url, function(data) {
+            if (typeof loadScript == 'function') {
+                loadScript('https://cdnjs.cloudflare.com/ajax/libs/mustache.js/2.3.0/mustache.min.js',function(){
+                    $obj.renderWidget(data);
+                });
+            }
+            else{
+                console.log('something is wrong');
+            }
+                
+        });
+
+    },
+    initWidget:function($obj){
+        if(typeof $obj == 'string')
+        $obj = $($obj);
+        this.currentObj = $obj;
+        $url = base_url+'/web/ajax_files/etb2b_fetchsocialfeeds.php?';
+        if($obj.data('search'))
+        $url += '&twhash='+$obj.data('search');
+        if($obj.data('handle'))
+        $url += '&twhandle='+$obj.data('handle');
+        if($obj.data('fbhandle'))
+        $url += '&fbname='+$obj.data('fbhandle');
+        this.loadTwitterData($url);
+
+    },
+    init: function() {
+       $(".custom-twitter-widget").each(function(){
+            var $obj = $(this);
+            etb2b.twitterWidget.initWidget($obj);
+            if($obj.data('auto-fetch') == 1)
+            {
+                setInterval(function(){ 
+                    etb2b.twitterWidget.initWidget($obj);
+                }, 60000);
+            }
+        });
+    }
+}
+etb2b.twitterWidget.init();

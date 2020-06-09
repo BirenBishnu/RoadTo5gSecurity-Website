@@ -1,0 +1,385 @@
+if(typeof (EtB2b) !== 'undefined'){    
+    if(typeof (EtB2b.globals) !== 'undefined'){    
+        if(typeof (EtB2b.globals._loggedin_user) !== 'undefined'){
+            _loggedin_user = EtB2b.globals._loggedin_user;
+        }
+    }
+    if(typeof EtB2b.layer != 'undefined'){
+    _remove_custom_poplayer2 = EtB2b.layer._remove_custom_poplayer2;
+    }
+    if(typeof EtB2b.layer != 'undefined'){
+        check_login_status = EtB2b.login.check_login_status;
+    }
+}
+
+times = window.times || {};
+times.mobile = window.times.mobile || {};
+retrievePromise = {};
+times.mobile.googleOneTap = {
+    constants: {
+        clientId: GOOGLE_APPID,
+        disabledFor : ['masterclass'],
+        blockedfor : [],
+        dismissableFor : ['tech'], 
+        blockedPaths:'^/(latest-news|top-stories|news|tag|search)+.*',
+        pagePath    : window.location.pathname,
+        blockTimer       :0,
+        delayTime  : 3000,
+    },
+    addClass: function($obj,$class){
+        var element, name, arr;
+        if(typeof $obj == 'string')
+        $obj = $($obj);
+        element = $obj.get(0);
+        name = $class.trim();
+        arr = element.className.split(" ");
+        if (arr.indexOf(name) == -1) {
+            element.className += ' '+name+' ';
+        }
+    },
+    initiateAPI: function() {     
+        times.mobile.googleOneTap.addClass('body',' yoloblocker ');   
+        times.mobile.googleOneTap.constants.blockTimer = setInterval(function(){
+            if(typeof window['yoloerror'] == 'undefined' && typeof window['yolosuccess'] == 'undefined')
+            times.mobile.googleOneTap.blockPage();
+            else
+            {
+                times.mobile.googleOneTap.openPage();
+                clearInterval(times.mobile.googleOneTap.constants.blockTimer);
+            }
+        }, 4000);
+        
+        var tthisConstants = times.mobile.googleOneTap.constants;
+        if (window.googleyolo) {
+            googleyolo = window.googleyolo;
+        }
+        googleyolo.setTimeouts(10000);
+        times.mobile.googleOneTap.retrieveYolo();
+    },
+    retrieveYolo: function() {
+        if(getCookie('yolologgedout'))
+        {
+            ga('send', 'event', 'YoloLogin', 'Hint','HintShownForLoggedOutUsers');
+            times.mobile.googleOneTap.hintYolo();
+            return ;
+        }
+        var tthisConstants = times.mobile.googleOneTap.constants;
+        if (window.googleyolo) {
+            googleyolo = window.googleyolo;
+        }
+        var retrievePromise = googleyolo.retrieve({
+            supportedAuthMethods: [
+            "https://accounts.google.com",
+            ],
+            supportedIdTokenProviders: [
+            {
+                uri: "https://accounts.google.com",
+                clientId: times.mobile.googleOneTap.constants.clientId
+            }
+            ]
+        });
+
+        retrievePromise.then((credential) => {
+            window['yolosuccess'] = 1;
+            if (credential.password) {
+                ga('send', 'event', 'YoloLogin', 'Retrieve','Credentials Found');
+            } else {
+                ga('send', 'event', 'YoloLogin', 'Retrieve','Retrived Successfull');
+                times.mobile.googleOneTap.loginUser(credential);
+            }
+        }, (error) => {
+            if (error.type === 'noCredentialsAvailable') {
+                ga('send', 'event', 'YoloLogin', 'Retrieve','No Credentails');
+                times.mobile.googleOneTap.hintYolo();
+                $("body").removeClass('yoloblocker');
+            }
+            else if(error.type === 'requestFailed'){
+                if (!window.oneTapRetry) {
+                    window.oneTapRetry = setTimeout(function(){times.mobile.googleOneTap.retrieveYolo();}, 2000);
+                }
+            }
+            else if(error.type == 'userCanceled')
+            {
+                window['yoloerror'] = 1;
+                window['yoloerrordescription'] = error;
+                setCookie('yolodismissed',1,2);
+                times.mobile.googleOneTap.openPage();   
+                $("body").removeClass('yoloblocker');
+                ga('send', 'event', 'YoloLogin', 'Retrieve','User canceled');  
+            }   
+        });
+    },
+    hintYolo : function(){ 
+        if (window.googleyolo) {
+            googleyolo = window.googleyolo;
+        }
+        var hintPromise = googleyolo.hint({
+            supportedAuthMethods: [
+            "https://accounts.google.com"
+            ],
+            supportedIdTokenProviders: [{
+                uri: "https://accounts.google.com",
+                clientId: times.mobile.googleOneTap.constants.clientId
+            }]
+        });
+
+        hintPromise.then(function(credential) {
+            window['yolosuccess'] = 1;
+            if (credential.idToken) {
+                ga('send', 'event', 'YoloLogin', 'Hint','Clicked');
+                times.mobile.googleOneTap.loginUser(credential);
+            }
+        }, function(error) { 
+            ga('send', 'event', 'YoloLogin', 'Hint','Error',error.type);
+            if (error.type === 'noCredentialsAvailable') {
+                window['yoloerror'] = 1;
+                window['yoloerrordescription'] = error;
+                
+                times.mobile.googleOneTap.openPage();
+                $("body").removeClass('yoloblocker');
+            }
+            else if(error.type === 'requestFailed'){
+                if (!window.oneTapRetry) {
+                    window.oneTapRetry = setTimeout(function(){times.mobile.googleOneTap.hintYolo();}, 2000);
+                }
+            }
+            else if(error.type == 'userCanceled')
+            {
+                window['yoloerror'] = 1;
+                window['yoloerrordescription'] = error;
+                setCookie('yolodismissed',1,2);
+                times.mobile.googleOneTap.openPage();   
+                $("body").removeClass('yoloblocker');
+                ga('send', 'event', 'YoloLogin', 'Retrieve','User canceled');  
+            }
+        });
+    },
+    'blockPage' : function($iteration){
+        if(typeof window['yolopageblocked'] != 'undefined' && window['yolopageblocked'] == 1)
+        return;
+        if(typeof $iteration == 'undefined' || !$iteration)
+            $iteration = 1;
+        if(deviceType == 'desktop')
+        {
+            $iframe = $("iframe[src*='&renderMode=navPopout&preloadRequest=%7B%22type%22%3A%22']");
+            if($iframe.length == 0)
+            {
+                if($iteration < 15)
+                {
+                    window['yoloblocktimer'] = setTimeout(function(){ times.mobile.googleOneTap.blockPage($iteration++); }, 200);
+                    return;
+                }
+                times.mobile.googleOneTap.openPage();
+                return;
+            }
+            else if(typeof $iframe.attr('hidden') == 'undefined')
+            {
+                $delaytimer = times.mobile.googleOneTap.constants.delayTime;
+                $delayclass = "yolodelay";
+                $iframe.addClass($delayclass);
+                if($.inArray(ET_PORTAL ,times.mobile.googleOneTap.constants.blockedfor) > -1){
+                    $iframe.removeClass($delayclass);
+                    $delayclass = "nodelay";
+                    setTimeout(function(){
+                        if($('#yoloblockPage').length == 0)
+                            $iframe.after('<span id="yoloblockPage" class="'+$delayclass+'" style="font-size:14px;line-height:28px;text-align:center;background-color:white;position:fixed;right:21px;top:21px;width:320px;z-index:10002;padding: 12px 10px;height: 29px;">Sign in to '+SITE_NAME_TITLE+' with Google</span>');
+                        if($('#yolooverlay').length == 0)
+                            $('body').append('<div id="yolooverlay" class="'+$delayclass+' login-blocker" style="opacity:0.95;z-index:10000 !important;"><div class="container1"><img src="https://img.etb2bimg.com/files/cp/upload-1534247183-login-blocker-arrow-png" alt="" class="arrow-web" /><div class="desc"><h2>Sign in</h2><p>Please select an account to continue using '+SITE_NAME_TITLE+'.</p></div></div></div>');
+                    },2000);
+                    $delaytimer = 0;
+                }
+                else
+                {
+                    setTimeout(function(){
+                        if($('#yolooverlay').length == 0)
+                            $('body').append('<div id="yolooverlay" class="'+$delayclass+' login-blocker" style="opacity:0.95;z-index:10000 !important;"><div class="container1"><img src="https://img.etb2bimg.com/files/cp/upload-1534247183-login-blocker-arrow-png" alt="" class="arrow-web" /><div class="desc"><h2>Sign in</h2><p>Please select an account to continue using '+SITE_NAME_TITLE+'.</p></div></div></div>');
+                    },2000);
+                }
+                $iframe.css('z-index','10001');
+                ga('send', 'event', 'YoloLogin', 'Hint','HintShown');
+                window['yoloblocktimer'] = setTimeout(function(){times.mobile.googleOneTap.addClass('body',' yoloblocker ');   },1000);
+                setTimeout(function(){
+                    if($.isEmptyObject(_loggedin_user) || _loggedin_user['type']!='loggedin')
+                        $("."+$delayclass).each(function(){window['yolopageblocked'] =1;$("#yolooverlay").show();$("iframe[src*='&renderMode=navPopout&preloadRequest=%7B%22type%22%3A%22']").show();$(this).removeClass($delayclass);});
+                    else
+                        times.mobile.googleOneTap.openPage();
+                    if(yoloFlag == "1"){
+                        $iframe.hide();
+                        $('#yolooverlay').hide();
+                        window['yolopageblocked'] = '';
+                        $('#yoloblockPage').hide();
+                    }
+                    else{
+                        $iframe.show();
+                        $('#yolooverlay').show();
+                        $('#yoloblockPage').show();
+                    }
+                },$delaytimer);
+                return;
+            }
+            times.mobile.googleOneTap.openPage();
+
+        }
+        else
+        {
+            $iframe = $("iframe[src*='&renderMode=bottomSheet&preloadRequest=%7B%22type%22%3A%22']");
+            if($iframe.length == 0)
+            {
+                if($iteration < 15)
+                {
+                    window['yoloblocktimer'] = setTimeout(function(){ times.mobile.googleOneTap.blockPage($iteration++); }, 200);
+                    return;
+                }
+                times.mobile.googleOneTap.openPage();
+                return;
+            }
+            else if(typeof $iframe.attr('hidden') == 'undefined')
+            {
+                $delaytimer = times.mobile.googleOneTap.constants.delayTime;
+                $delayclass = "yolodelay";
+                $iframe.addClass($delayclass);
+                setTimeout(function(){
+                    if($.inArray(ET_PORTAL ,times.mobile.googleOneTap.constants.blockedfor) > -1){
+                        $iframe.removeClass($delayclass);
+                        $iframe.width('110%');
+                        $delaytimer = 0;
+                        $delayclass = "nodelay";
+                    }
+                },1500);
+                if($.inArray(ET_PORTAL ,times.mobile.googleOneTap.constants.blockedfor) >-1){
+                    $iframe.removeClass($delayclass);
+                    $iframe.width('110%');
+                    $delaytimer = 0;
+                    $delayclass = "nodelay";
+                }
+                setTimeout(function(){
+                    if($('#yolooverlay').length == 0)
+                        $('body').append('<div id="yolooverlay"  class="'+$delayclass+' login-blocker" style="opacity:0.95;z-index:10000 !important;"><div class="container1"><div class="desc"><h2>Sign in</h2><p>Please select an account to continue using '+SITE_NAME_TITLE+'.</p><img src="https://img.etb2bimg.com/files/cp/upload-1534249209-login-blocker-arrow-sm-png" alt="" class="arrow-mob" ></div></div></div>');
+
+                },2000);
+                $iframe.css('z-index','10001');
+                ga('send', 'event', 'YoloLogin', 'Hint','HintShown');
+                times.mobile.googleOneTap.addClass('body',' yoloblocker ');   
+                setTimeout(function(){
+                    if($.isEmptyObject(_loggedin_user) || _loggedin_user['type']!='loggedin')
+                        $("."+$delayclass).each(function(){window['yolopageblocked'] =1;$("#yolooverlay").show();$("iframe[src*='&renderMode=bottomSheet&preloadRequest=%7B%22type%22%3A%22']").show();$(this).removeClass($delayclass);});
+                    else
+                        times.mobile.googleOneTap.openPage();
+                    if(yoloFlag == "1"){
+                        $iframe.hide();
+                        $('#yolooverlay').hide();
+                        window['yolopageblocked'] = '';
+                        $('#yoloblockPage').hide();
+                    }
+                    else{
+                        $iframe.show();
+                        $('#yolooverlay').show();
+                        $('#yoloblockPage').show();
+                    }
+                },$delaytimer);
+                return;
+            }
+            times.mobile.googleOneTap.openPage();
+        }
+    },
+    openPage: function(){
+        clearTimeout(window['yoloblocktimer']);
+        //clearInterval(times.mobile.googleOneTap.constants.blockTimer);
+        $("#yoloblockPage").remove();
+        $("#yolooverlay").remove();
+        return;
+    },
+    loginUser: function(credential){
+        times.mobile.googleOneTap.openPage();
+        ga('send', 'event', 'YoloLogin', 'Token','Sent');
+        _remove_custom_poplayer2(1);
+        setLocalStorage('skipprofilecompletion',{},1);
+        if(EtB2b && EtB2b.globals)
+        {
+            EtB2b.globals.social_login = 1;
+            url = base_url+'/ajax_files/etb2b_social_registration.php?connect_type=googleyolo&type=googleyolo';
+        }
+        else{
+            window.social_login = 1;
+            url = base_url+'/ajax_files/etb2b_social_registration.php?connect_type=googleyolo&type=googleyolo';
+        }
+        $.get(url,{'idtoken':credential.idToken},function(data){
+            $("body").append('<div class="hide">'+data+'</div>');
+            setCookie('yolologgedout',0,-1);
+            setCookie('yolodismissed',0,-1);
+        });
+        return;
+    },
+    bindFunction: function() {
+        window.onGoogleYoloLoad = times.mobile.googleOneTap.initiateAPI;
+    },
+    loadjs: function() {
+        (function(d, s, id) {
+            var js, fjs = d.getElementsByTagName(s)[0];
+            if (d.getElementById(id)) {
+                return;
+            }
+            js = d.createElement(s);
+            js.id = id;
+            js.src = "https://smartlock.google.com/client";
+            fjs.parentNode.insertBefore(js, fjs);
+        }(document, 'script', 'onetap-jssdk'));
+    },
+    addRequiredCss:function(css){
+        head = document.head || document.getElementsByTagName('head')[0],
+        style = document.createElement('style');
+        style.type = 'text/css';
+        if (style.styleSheet){
+            style.styleSheet.cssText = css;
+        } else {
+            style.appendChild(document.createTextNode(css));
+        }
+        head.appendChild(style);   
+    }
+    ,init: function() {
+        var isChrome = navigator.userAgent.toLowerCase().match('crios') || navigator.userAgent.toLowerCase().match('chrome');
+        if(isChrome){
+            if($.inArray(ET_PORTAL ,times.mobile.googleOneTap.constants.disabledFor) == -1)
+            {
+                if(!getCookie('yolodismissed'))
+                {
+                    pattern = new RegExp(times.mobile.googleOneTap.constants.blockedPaths);
+                    if(times.mobile.googleOneTap.constants.pagePath == '/' || pattern.test(times.mobile.googleOneTap.constants.pagePath))
+                    {
+                        times.mobile.googleOneTap.bindFunction();
+                        times.mobile.googleOneTap.loadjs();
+                        times.mobile.googleOneTap.addRequiredCss('.yolodelay{display:none !important;}.yolooverlay{display:none;}body.yoloblocker #my_web_push_app_box_confirm,body.yoloblocker .pop3.transparent{display:none !important;}body #yoloblockPage,body #yolooverlay{display:none;}body.yoloblocker #yoloblockPage,body.yoloblocker #yolooverlay{display:block;}.login-blocker{position: fixed;left: 0;top: 0;z-index:16000;height: 100%;width: 100%;background-color: #7b7b7b; font-family:Arial, sans-serif}.login-blocker .container1{max-width:1000px; margin:0 auto; position:relative; box-sizing:border-box;}.login-blocker img.arrow-web{position:absolute; left:133px; right:235px; top:45px; z-index:999;}.login-blocker .desc{padding-top:20%; color:#fff;}.login-blocker .desc h2{font-size:36px; color:#fff; font-weight:bold; margin:0 0 30px;}.login-blocker .desc p{font-size:24px; color:#fff; line-height:1.3em; max-width:480px;}.arrow-mob{display:none;}@media screen and (max-width:1024px){.login-blocker .container1{padding:0 20px;}  .login-blocker img.arrow-web{right:auto; width:380px; left:135px;}.login-blocker .desc{top:14px;}}@media screen and (max-width:767px){.login-blocker img.arrow-web{display:none;}.login-blocker .desc{text-align:center; top:10%;}.login-blocker .desc p{font-size:18px; margin:0 0 20px; text-align:center; max-width:inherit;}    .arrow-mob{display:block; margin:0 auto 15px;}}');   
+                        times.mobile.googleOneTap.addRequiredCss("iframe[src*='preloadRequest=%7B%22type%22%3A%22']{display:none;}");   
+                    }
+                }
+            }
+        }
+    }
+}
+times.mobile.googleOneTap.init();
+
+var container = document.querySelector('body');
+MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
+var observer = new MutationObserver(function(mutations, observer){  
+    if($('.sub-popup3, .popup1').css('display') == 'block'){
+        $('#my_web_push_app_box_confirm').hide(); 
+        localStorage.setItem('yoloFlag',1);
+    }  
+    if($('._lgn_pop, .popup5').css('display') == 'block'){
+        $('#my_web_push_app_box_confirm').hide();         
+    }  
+    yoloFlag = localStorage.getItem('yoloFlag');    
+});
+
+observer.observe(container, {
+  childList: true,
+  attributes: true,
+  characterData: true,
+  subtree: true,
+  attributeOldValue: true,
+  characterDataOldValue: true
+});
+
+$('#top-login-btn').on('click', function(){
+    $('#my_web_push_app_box_confirm, .popup1, .sub-popup3').hide(); 
+});
